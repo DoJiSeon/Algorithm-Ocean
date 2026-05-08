@@ -35,6 +35,10 @@ public class FirebaseRestManager : MonoBehaviour
     [SerializeField]
     private TMP_InputField youtubeInputField;
 
+    [Header("UI Manager")]
+    [SerializeField]
+    private UIManager uiManager;
+
     private string userId;
     private readonly List<SubmitData> cachedSubmissions = new();
 
@@ -42,6 +46,11 @@ public class FirebaseRestManager : MonoBehaviour
 
     void Start()
     {
+        if (uiManager == null)
+        {
+            uiManager = FindAnyObjectByType<UIManager>();
+        }
+
         if (PlayerPrefs.HasKey("userId"))
         {
             userId = PlayerPrefs.GetString("userId");
@@ -81,6 +90,18 @@ public class FirebaseRestManager : MonoBehaviour
         };
 
         StartCoroutine(SubmitCoroutine(data));
+        PlaySubmitFloating();
+    }
+
+    private void PlaySubmitFloating()
+    {
+        if (uiManager == null)
+        {
+            Debug.LogWarning("UIManager is not assigned.");
+            return;
+        }
+
+        uiManager.PlayFloatingCapsule();
     }
 
     private string[] GetSelectedCategories()
