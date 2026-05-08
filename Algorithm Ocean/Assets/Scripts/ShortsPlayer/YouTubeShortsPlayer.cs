@@ -30,6 +30,7 @@ namespace AlgorithmOcean.ShortsPlayer
         private bool hasRect;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] private static extern void AOYT_InstallFullscreenPatch();
         [DllImport("__Internal")] private static extern void AOYT_Create(string objectName, int controls, int muted, int loop);
         [DllImport("__Internal")] private static extern void AOYT_LoadVideo(string objectName, string videoId, int autoplay);
         [DllImport("__Internal")] private static extern void AOYT_SetRect(string objectName, float x, float y, float width, float height);
@@ -41,6 +42,14 @@ namespace AlgorithmOcean.ShortsPlayer
 #endif
 
         public string CurrentVideoId { get; private set; }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void InstallFullscreenPatch()
+        {
+            AOYT_InstallFullscreenPatch();
+        }
+#endif
 
         public void Configure(RectTransform targetRect, Canvas targetCanvas)
         {
@@ -116,6 +125,7 @@ namespace AlgorithmOcean.ShortsPlayer
             CurrentVideoId = videoId;
             CreatePlayerIfNeeded();
             UpdatePlayerRect(true);
+            Debug.Log($"[YouTubeShortsPlayer] Loading videoId='{videoId}', rect={lastNormalizedRect}", this);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             AOYT_LoadVideo(name, videoId, autoplay ? 1 : 0);
@@ -315,11 +325,13 @@ namespace AlgorithmOcean.ShortsPlayer
 
         public void OnYouTubePlayerReady()
         {
+            Debug.Log("[YouTubeShortsPlayer] Player ready.", this);
             onReady?.Invoke();
         }
 
         public void OnYouTubePlayerState(string state)
         {
+            Debug.Log($"[YouTubeShortsPlayer] Player state: {state}", this);
             onStateChanged?.Invoke(state);
         }
 

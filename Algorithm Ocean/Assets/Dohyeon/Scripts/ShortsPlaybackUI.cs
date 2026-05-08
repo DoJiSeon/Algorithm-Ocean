@@ -10,10 +10,11 @@ namespace AlgorithmOcean.Dohyeon
         [SerializeField] private YouTubeShortsPlayer shortsPlayer;
 
         public UnityEvent<string> onShortsUrlReceived;
+        private bool isOpening;
 
         private void Awake()
         {
-            if (root != null)
+            if (root != null && !isOpening)
             {
                 root.SetActive(false);
             }
@@ -29,13 +30,16 @@ namespace AlgorithmOcean.Dohyeon
 
             if (root != null)
             {
+                isOpening = true;
                 root.SetActive(true);
+                isOpening = false;
             }
 
             onShortsUrlReceived?.Invoke(shortsUrl);
 
             if (shortsPlayer != null)
             {
+                shortsPlayer.SetVisible(true);
                 shortsPlayer.Load(shortsUrl, true);
             }
             else

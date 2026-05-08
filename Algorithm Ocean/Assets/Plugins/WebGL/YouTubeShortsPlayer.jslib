@@ -43,25 +43,180 @@ mergeInto(LibraryManager.library, {
         document.body;
     }
 
+    function installFullscreenPatch() {
+      const canvas = getUnityCanvas();
+      if (!canvas || canvas === document.body || canvas.__aoYoutubeFullscreenPatched) {
+        return;
+      }
+
+      const host = canvas.parentElement;
+      if (!host) {
+        return;
+      }
+
+      canvas.__aoYoutubeFullscreenPatched = true;
+      canvas.__aoYoutubeFullscreenStyles = {
+        hostWidth: host.style.width,
+        hostHeight: host.style.height,
+        hostPosition: host.style.position,
+        hostOverflow: host.style.overflow,
+        hostBackground: host.style.background,
+        canvasWidth: canvas.style.width,
+        canvasHeight: canvas.style.height,
+        canvasDisplay: canvas.style.display
+      };
+
+      function applyFullscreenStyles(active) {
+        const styles = canvas.__aoYoutubeFullscreenStyles;
+        if (!styles) {
+          return;
+        }
+
+        if (active) {
+          host.style.width = "100vw";
+          host.style.height = "100vh";
+          host.style.position = "relative";
+          host.style.overflow = "hidden";
+          host.style.background = "black";
+          canvas.style.width = "100%";
+          canvas.style.height = "100%";
+          canvas.style.display = "block";
+          return;
+        }
+
+        host.style.width = styles.hostWidth;
+        host.style.height = styles.hostHeight;
+        host.style.position = styles.hostPosition;
+        host.style.overflow = styles.hostOverflow;
+        host.style.background = styles.hostBackground;
+        canvas.style.width = styles.canvasWidth;
+        canvas.style.height = styles.canvasHeight;
+        canvas.style.display = styles.canvasDisplay;
+      }
+
+      function requestHostFullscreen(requestHost) {
+        applyFullscreenStyles(true);
+        const result = requestHost();
+        if (result && typeof result.catch === "function") {
+          result.catch(function () {
+            applyFullscreenStyles(false);
+          });
+        }
+        return result;
+      }
+
+      document.addEventListener("fullscreenchange", function () {
+        applyFullscreenStyles(document.fullscreenElement === host);
+      });
+
+      document.addEventListener("webkitfullscreenchange", function () {
+        applyFullscreenStyles(document.webkitFullscreenElement === host);
+      });
+
+      const requestFullscreen = canvas.requestFullscreen;
+      if (requestFullscreen) {
+        canvas.requestFullscreen = function (options) {
+          if (host.requestFullscreen) {
+            return requestHostFullscreen(function () {
+              return host.requestFullscreen(options);
+            });
+          }
+          return requestFullscreen.call(canvas, options);
+        };
+      }
+
+      const webkitRequestFullscreen = canvas.webkitRequestFullscreen;
+      if (webkitRequestFullscreen) {
+        canvas.webkitRequestFullscreen = function () {
+          if (host.webkitRequestFullscreen) {
+            return requestHostFullscreen(function () {
+              return host.webkitRequestFullscreen();
+            });
+          }
+          return webkitRequestFullscreen.call(canvas);
+        };
+      }
+
+      const mozRequestFullScreen = canvas.mozRequestFullScreen;
+      if (mozRequestFullScreen) {
+        canvas.mozRequestFullScreen = function () {
+          if (host.mozRequestFullScreen) {
+            return requestHostFullscreen(function () {
+              return host.mozRequestFullScreen();
+            });
+          }
+          return mozRequestFullScreen.call(canvas);
+        };
+      }
+
+      const msRequestFullscreen = canvas.msRequestFullscreen;
+      if (msRequestFullscreen) {
+        canvas.msRequestFullscreen = function () {
+          if (host.msRequestFullscreen) {
+            return requestHostFullscreen(function () {
+              return host.msRequestFullscreen();
+            });
+          }
+          return msRequestFullscreen.call(canvas);
+        };
+      }
+    }
+
+    function getOverlayHost() {
+      installFullscreenPatch();
+
+      const fullscreenElement = document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      if (fullscreenElement && fullscreenElement.tagName !== "CANVAS") {
+        return fullscreenElement;
+      }
+
+      const canvas = getUnityCanvas();
+      return canvas.parentElement || document.body;
+    }
+
     function createContainer(objectName) {
       const container = document.createElement("div");
       container.id = "ao-youtube-" + objectName;
-      container.style.position = "absolute";
+      container.style.position = "fixed";
       container.style.overflow = "hidden";
       container.style.backgroundColor = "black";
-      container.style.zIndex = "10";
+      container.style.zIndex = "2147483647";
       container.style.display = "none";
       container.style.pointerEvents = "auto";
+      container.style.color = "white";
 
-      const playerElement = document.createElement("div");
+      const playerElement = document.createElement("iframe");
       playerElement.id = container.id + "-player";
+      playerElement.style.width = "100%";
+      playerElement.style.height = "100%";
+      playerElement.style.border = "0";
+      playerElement.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      playerElement.allowFullscreen = true;
       container.appendChild(playerElement);
 
-      document.body.appendChild(container);
+      getOverlayHost().appendChild(container);
       return { container, playerElement };
     }
 
     function getCanvasRect() {
+      const fullscreenElement = document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      if (fullscreenElement) {
+        return {
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: window.innerHeight
+        };
+      }
+
       const canvas = getUnityCanvas();
       return canvas.getBoundingClientRect();
     }
@@ -70,6 +225,11 @@ mergeInto(LibraryManager.library, {
       if (typeof SendMessage === "function") {
         SendMessage(objectName, method, value || "");
       }
+    }
+
+    function report(objectName, message) {
+      console.log("[AOYT] " + message);
+      sendMessage(objectName, "OnYouTubePlayerState", message);
     }
 
     function stateName(state) {
@@ -84,6 +244,8 @@ mergeInto(LibraryManager.library, {
     }
 
     function ensurePlayer(objectName, options) {
+      installFullscreenPatch();
+
       if (players[objectName]) {
         return players[objectName];
       }
@@ -92,18 +254,17 @@ mergeInto(LibraryManager.library, {
       const entry = {
         objectName: objectName,
         container: elements.container,
-        playerElement: elements.playerElement,
+        iframe: elements.playerElement,
         options: options,
         videoId: "",
-        player: null,
+        autoplay: false,
+        ready: false,
         visible: false,
         rect: { x: 0, y: 0, width: 0, height: 0 }
       };
 
       players[objectName] = entry;
-      loadApi().then(function () {
-        buildPlayer(entry);
-      });
+      report(objectName, "created iframe container");
       return entry;
     }
 
@@ -122,13 +283,16 @@ mergeInto(LibraryManager.library, {
           playsinline: 1,
           rel: 0,
           loop: entry.options.loop ? 1 : 0,
+          mute: entry.options.muted ? 1 : 0,
           playlist: entry.options.loop && entry.videoId ? entry.videoId : undefined
         },
         events: {
           onReady: function (event) {
+            entry.ready = true;
             if (entry.options.muted) {
               event.target.mute();
             }
+            loadEntryVideo(entry);
             sendMessage(entry.objectName, "OnYouTubePlayerReady", "");
           },
           onStateChange: function (event) {
@@ -141,15 +305,77 @@ mergeInto(LibraryManager.library, {
       });
     }
 
+    function loadEntryVideo(entry) {
+      if (!entry.iframe || !entry.videoId) {
+        report(entry.objectName, "load skipped: iframe or videoId missing");
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.set("playsinline", "1");
+      params.set("rel", "0");
+      params.set("controls", entry.options.controls ? "1" : "0");
+      params.set("autoplay", entry.autoplay ? "1" : "0");
+      params.set("mute", entry.options.muted ? "1" : "0");
+      params.set("loop", entry.options.loop ? "1" : "0");
+      params.set("enablejsapi", "1");
+      params.set("origin", window.location.origin);
+
+      if (entry.options.loop) {
+        params.set("playlist", entry.videoId);
+      }
+
+      entry.iframe.src = "https://www.youtube.com/embed/" + encodeURIComponent(entry.videoId) + "?" + params.toString();
+      report(entry.objectName, "iframe src set: " + entry.videoId);
+      sendMessage(entry.objectName, "OnYouTubePlayerReady", "");
+    }
+
     function applyRect(entry) {
+      const host = getOverlayHost();
+      if (entry.container.parentElement !== host) {
+        host.appendChild(entry.container);
+      }
+
       const canvasRect = getCanvasRect();
-      entry.container.style.left = (canvasRect.left + canvasRect.width * entry.rect.x) + "px";
-      entry.container.style.top = (canvasRect.top + canvasRect.height * entry.rect.y) + "px";
-      entry.container.style.width = (canvasRect.width * entry.rect.width) + "px";
-      entry.container.style.height = (canvasRect.height * entry.rect.height) + "px";
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || canvasRect.width;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || canvasRect.height;
+      let left = canvasRect.left + canvasRect.width * entry.rect.x;
+      let top = canvasRect.top + canvasRect.height * entry.rect.y;
+      let width = canvasRect.width * entry.rect.width;
+      let height = canvasRect.height * entry.rect.height;
+
+      if (width < 32 || height < 32) {
+        const fallbackHeight = canvasRect.height * 0.72;
+        height = Math.min(640, Math.max(320, fallbackHeight));
+        width = height * 9 / 16;
+        left = canvasRect.left + (canvasRect.width - width) * 0.5;
+        top = canvasRect.top + (canvasRect.height - height) * 0.5;
+        report(entry.objectName, "rect fallback applied");
+      }
+
+      left = Math.max(0, Math.min(left, viewportWidth - width));
+      top = Math.max(0, Math.min(top, viewportHeight - height));
+
+      entry.container.style.left = left + "px";
+      entry.container.style.top = top + "px";
+      entry.container.style.width = width + "px";
+      entry.container.style.height = height + "px";
+      report(entry.objectName, "shorts frame rect applied: " + Math.round(left) + "," + Math.round(top) + " " + Math.round(width) + "x" + Math.round(height));
     }
 
     window.addEventListener("resize", function () {
+      Object.keys(players).forEach(function (key) {
+        applyRect(players[key]);
+      });
+    });
+
+    document.addEventListener("fullscreenchange", function () {
+      Object.keys(players).forEach(function (key) {
+        applyRect(players[key]);
+      });
+    });
+
+    document.addEventListener("webkitfullscreenchange", function () {
       Object.keys(players).forEach(function (key) {
         applyRect(players[key]);
       });
@@ -161,6 +387,8 @@ mergeInto(LibraryManager.library, {
       });
     }, true);
 
+    installFullscreenPatch();
+
     return {
       create: function (objectName, options) {
         ensurePlayer(objectName, options);
@@ -169,31 +397,11 @@ mergeInto(LibraryManager.library, {
       loadVideo: function (objectName, videoId, autoplay) {
         const entry = ensurePlayer(objectName, { controls: true, muted: true, loop: false });
         entry.videoId = videoId;
-        entry.container.style.display = entry.visible ? "block" : "none";
-
-        loadApi().then(function () {
-          buildPlayer(entry);
-          if (!entry.player || !entry.player.loadVideoById) {
-            return;
-          }
-
-          if (entry.options.loop) {
-            entry.player.loadPlaylist({
-              playlist: [videoId],
-              index: 0
-            });
-            if (!autoplay) {
-              entry.player.pauseVideo();
-            }
-            return;
-          }
-
-          if (autoplay) {
-            entry.player.loadVideoById(videoId);
-          } else {
-            entry.player.cueVideoById(videoId);
-          }
-        });
+        entry.autoplay = autoplay;
+        entry.visible = true;
+        entry.container.style.display = "block";
+        report(objectName, "load requested: " + videoId + ", visible=" + entry.visible);
+        loadEntryVideo(entry);
       },
 
       setRect: function (objectName, x, y, width, height) {
@@ -204,22 +412,19 @@ mergeInto(LibraryManager.library, {
 
       play: function (objectName) {
         const entry = players[objectName];
-        if (entry && entry.player && entry.player.playVideo) {
-          entry.player.playVideo();
+        if (entry) {
+          entry.autoplay = true;
+          loadEntryVideo(entry);
         }
       },
 
       pause: function (objectName) {
-        const entry = players[objectName];
-        if (entry && entry.player && entry.player.pauseVideo) {
-          entry.player.pauseVideo();
-        }
       },
 
       stop: function (objectName) {
         const entry = players[objectName];
-        if (entry && entry.player && entry.player.stopVideo) {
-          entry.player.stopVideo();
+        if (entry && entry.iframe) {
+          entry.iframe.src = "about:blank";
         }
       },
 
@@ -239,10 +444,6 @@ mergeInto(LibraryManager.library, {
           return;
         }
 
-        if (entry.player && entry.player.destroy) {
-          entry.player.destroy();
-        }
-
         entry.container.remove();
         delete players[objectName];
       }
@@ -255,6 +456,11 @@ mergeInto(LibraryManager.library, {
       window.AlgorithmOceanYouTube = AOYT_CreateBridge();
     }
     return window.AlgorithmOceanYouTube;
+  },
+
+  AOYT_InstallFullscreenPatch__deps: ["$AOYT_GetBridge"],
+  AOYT_InstallFullscreenPatch: function () {
+    AOYT_GetBridge();
   },
 
   AOYT_Create__deps: ["$AOYT_GetBridge"],

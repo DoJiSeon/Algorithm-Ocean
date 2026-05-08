@@ -54,11 +54,19 @@ public class BottleSpawner : MonoBehaviour
             }
         }
 
-        RefillBottles();
+        if (contentRepository != null && contentRepository.IsLoaded)
+        {
+            RefillBottles();
+        }
     }
 
     private void RefillBottles()
     {
+        if (contentRepository == null || !contentRepository.IsLoaded)
+        {
+            return;
+        }
+
         RemoveViewedBottles();
 
         List<SubmitData> filteredContents = GetSpawnableContents();

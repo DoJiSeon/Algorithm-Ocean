@@ -1,3 +1,4 @@
+#if !UNITY_WEBGL
 /*
  * Copyright 2025 Google LLC
  *
@@ -437,3 +438,4 @@ namespace Firebase.Internal
   }
 
 }
+#endif

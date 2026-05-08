@@ -1513,7 +1513,7 @@ MonoBehaviour:
   initialVideoOrUrl: 
   playOnStart: 1
   muted: 1
-  controls: 0
+  controls: 1
   loop: 0
   visibleOnEnable: 1
   onReady:
@@ -3177,7 +3177,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5b96d56e5ce1104492512f1d2d2a321, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlgorithmOcean.Dohyeon.ShortsContentRepository
-  gameManager: {fileID: 0}
+  gameManager: {fileID: 2012785225}
   firebaseRestManager: {fileID: 449584596}
   fetchFromFirebaseOnStart: 1
   fallbackContents: []
@@ -3796,7 +3796,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1448353598
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5008,6 +5008,60 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2003915372}
   m_CullTransparentMesh: 1
+--- !u!1 &2012785224
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2012785226}
+  - component: {fileID: 2012785225}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2012785225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012785224}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c100c13a4d1afcf49b8c5f69766b4534, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  preferenceToggles:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  selectedPreferenceCategories: []
+--- !u!4 &2012785226
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012785224}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 937.1444, y: 540.2802, z: 5360.875}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2013675056
 GameObject:
   m_ObjectHideFlags: 0
@@ -5311,3 +5365,4 @@ SceneRoots:
   - {fileID: 449584597}
   - {fileID: 1448353602}
   - {fileID: 1125955772}
+  - {fileID: 2012785226}
