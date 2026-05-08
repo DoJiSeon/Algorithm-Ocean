@@ -15,13 +15,35 @@ public class BottleSpawner : MonoBehaviour
     [SerializeField] private float spawnRadiusMax = 20f;
     [SerializeField] private float minDistance = 3f;
     [SerializeField] private float despawnDistance = 35f;
+    [SerializeField] private bool spawnOnStart = false;
 
     private readonly List<BottleInteractable> activeBottles = new();
+    private Coroutine spawnRoutine;
+    private bool isSpawning;
 
-    private IEnumerator Start()
+    private void Start()
+    {
+        if (spawnOnStart)
+        {
+            BeginSpawning();
+        }
+    }
+
+    public void BeginSpawning()
+    {
+        if (isSpawning || spawnRoutine != null)
+        {
+            return;
+        }
+
+        spawnRoutine = StartCoroutine(SpawnWhenReady());
+    }
+
+    private IEnumerator SpawnWhenReady()
     {
         if (!CanSpawn())
         {
+            spawnRoutine = null;
             yield break;
         }
 
@@ -30,11 +52,14 @@ public class BottleSpawner : MonoBehaviour
             yield return null;
         }
 
+        isSpawning = true;
+        spawnRoutine = null;
         RefillBottles();
     }
 
     private void Update()
     {
+        if (!isSpawning) return;
         if (target == null) return;
 
         for (int i = activeBottles.Count - 1; i >= 0; i--)
@@ -99,7 +124,7 @@ public class BottleSpawner : MonoBehaviour
             return false;
         }
 
-        var bottle = Instantiate(bottlePrefab, position, Quaternion.identity, transform);
+        var bottle = Instantiate(bottlePrefab, position, bottlePrefab.transform.rotation, transform);
         var interactable = bottle.GetComponent<BottleInteractable>();
 
         if (interactable == null)

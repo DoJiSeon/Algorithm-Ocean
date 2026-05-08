@@ -12,6 +12,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] public GameObject initPanel;
     [SerializeField] public CanvasGroup initPanelCanvasGroup;
     [SerializeField] public GameObject buttonObject;
+    [SerializeField] private BottleSpawner bottleSpawner;
 
     [Header("Logo Fade Settings")]
     [SerializeField] public float fadeInTime = 1f;
@@ -42,6 +43,7 @@ public class UIManager : MonoBehaviour
     private Coroutine floatingRoutine;
     private Coroutine initPanelFloatingRoutine;
     private Coroutine buttonFloatingRoutine;
+    private bool hasRequestedBottleSpawn;
 
     private void Start()
     {
@@ -243,18 +245,43 @@ public class UIManager : MonoBehaviour
 
     private IEnumerator WaitForInitPanelClosedThenShowButtonRoutine()
     {
-        if (buttonObject == null)
-        {
-            yield break;
-        }
-
         while (initPanel != null && initPanel.activeInHierarchy)
         {
             yield return null;
         }
 
+        BeginBottleSpawning();
+
+        if (buttonObject == null)
+        {
+            yield break;
+        }
+
         buttonObject.SetActive(true);
         StartButtonFloating();
+    }
+
+    private void BeginBottleSpawning()
+    {
+        if (hasRequestedBottleSpawn)
+        {
+            return;
+        }
+
+        hasRequestedBottleSpawn = true;
+
+        if (bottleSpawner == null)
+        {
+            bottleSpawner = FindFirstObjectByType<BottleSpawner>();
+        }
+
+        if (bottleSpawner == null)
+        {
+            Debug.LogWarning("BottleSpawner is not assigned and could not be found in the scene.", this);
+            return;
+        }
+
+        bottleSpawner.BeginSpawning();
     }
 
     private void StartButtonFloating()
