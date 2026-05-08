@@ -1,94 +1,197 @@
+癤퓎sing System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using AlgorithmOcean.Dohyeon;
 
 public class BottleSpawner : MonoBehaviour
 {
     [SerializeField] private GameObject bottlePrefab;
-    [SerializeField] private Transform target;          // 추가: Boat
+    [SerializeField] private Transform target;
+    [SerializeField] private ShortsContentRepository contentRepository;
+    [SerializeField] private ShortsPlaybackUI playbackUI;
     [SerializeField] private int spawnCount = 8;
-    [SerializeField] private float spawnRadiusMin = 8f; // 추가: 너무 가깝지 않게
+    [SerializeField] private float spawnRadiusMin = 8f;
     [SerializeField] private float spawnRadiusMax = 20f;
     [SerializeField] private float minDistance = 3f;
-    [SerializeField] private float despawnDistance = 35f; // 추가: 멀어진 병 정리
+    [SerializeField] private float despawnDistance = 35f;
 
-    // TODO: 나중에 ShortsData 풀로 교체
-    [SerializeField]
-    private string[] dummyPool = {
-        "sample1", "sample2", "sample3", "sample4", "sample5"
-    };
+    private readonly List<BottleInteractable> activeBottles = new();
 
-    private List<BottleInteractable> activeBottles = new();
-
-    private void Start()
+    private IEnumerator Start()
     {
-        for (int i = 0; i < spawnCount; i++) SpawnOne();
+        if (!CanSpawn())
+        {
+            yield break;
+        }
+
+        while (!contentRepository.IsLoaded)
+        {
+            yield return null;
+        }
+
+        RefillBottles();
     }
 
     private void Update()
     {
-        // 배에서 멀어진 병 정리 + 재스폰
         if (target == null) return;
 
         for (int i = activeBottles.Count - 1; i >= 0; i--)
         {
-            var b = activeBottles[i];
-            if (b == null) { activeBottles.RemoveAt(i); SpawnOne(); continue; }
-
-            float dist = Vector3.Distance(b.transform.position, target.position);
-            if (dist > despawnDistance)
+            var bottle = activeBottles[i];
+            if (bottle == null || !bottle.gameObject.activeSelf)
             {
-                Destroy(b.gameObject);
                 activeBottles.RemoveAt(i);
-                SpawnOne();
+                continue;
             }
+
+            float distance = Vector3.Distance(bottle.transform.position, target.position);
+            if (distance > despawnDistance)
+            {
+                Destroy(bottle.gameObject);
+                activeBottles.RemoveAt(i);
+            }
+        }
+
+        RefillBottles();
+    }
+
+    private void RefillBottles()
+    {
+        List<SubmitData> filteredContents = GetSpawnableContents();
+        if (filteredContents.Count == 0)
+        {
+            return;
+        }
+
+        int targetBottleCount = Mathf.Min(spawnCount, filteredContents.Count);
+        while (activeBottles.Count < targetBottleCount)
+        {
+            SpawnOne(filteredContents);
         }
     }
 
-    private void SpawnOne()
+    private void SpawnOne(List<SubmitData> filteredContents)
     {
-        if (target == null || dummyPool.Length == 0) return;
+        if (!TryFindSpawnPosition(out Vector3 position))
+        {
+            Debug.LogWarning("[Spawner] Could not find a valid bottle spawn position.", this);
+            return;
+        }
 
-        Vector3 pos = FindSpawnPosition();
-        if (pos == Vector3.zero) return;
+        SubmitData content = PickUnusedContent(filteredContents);
+        if (content == null)
+        {
+            return;
+        }
 
-        var data = dummyPool[Random.Range(0, dummyPool.Length)];
-        var bottle = Instantiate(bottlePrefab, pos, Quaternion.identity, transform);
+        var bottle = Instantiate(bottlePrefab, position, Quaternion.identity, transform);
         var interactable = bottle.GetComponent<BottleInteractable>();
-        interactable.Initialize(data);
+
+        if (interactable == null)
+        {
+            Debug.LogWarning("[Spawner] Bottle prefab has no BottleInteractable component.", bottle);
+            Destroy(bottle);
+            return;
+        }
+
+        interactable.Initialize(content, playbackUI, target);
         interactable.OnPicked.AddListener(OnBottlePicked);
         activeBottles.Add(interactable);
     }
 
-    private Vector3 FindSpawnPosition()
+    private List<SubmitData> GetSpawnableContents()
+    {
+        if (!CanSpawn())
+        {
+            return new List<SubmitData>();
+        }
+
+        List<SubmitData> filteredContents = contentRepository.GetFilteredContents();
+        if (filteredContents.Count == 0)
+        {
+            Debug.LogWarning("[Spawner] No shorts content available after preferred genre filtering.", this);
+        }
+
+        return filteredContents;
+    }
+
+    private SubmitData PickUnusedContent(List<SubmitData> filteredContents)
+    {
+        var candidates = new List<SubmitData>(filteredContents);
+        foreach (BottleInteractable bottle in activeBottles)
+        {
+            if (bottle == null) continue;
+            candidates.Remove(bottle.ContentData);
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return candidates[Random.Range(0, candidates.Count)];
+    }
+
+    private bool TryFindSpawnPosition(out Vector3 position)
     {
         for (int attempt = 0; attempt < 30; attempt++)
         {
-            // 배 주변 링 형태로 스폰 (배 바로 옆은 X)
             float angle = Random.Range(0f, Mathf.PI * 2f);
             float radius = Random.Range(spawnRadiusMin, spawnRadiusMax);
             Vector3 candidate = target.position + new Vector3(
-                Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius
+                Mathf.Cos(angle) * radius,
+                0f,
+                Mathf.Sin(angle) * radius
             );
 
-            if (!IsTooClose(candidate)) return candidate;
+            if (!IsTooClose(candidate))
+            {
+                position = candidate;
+                return true;
+            }
         }
-        return Vector3.zero;
-    }
 
-    private bool IsTooClose(Vector3 p)
-    {
-        foreach (var b in activeBottles)
-        {
-            if (b == null) continue;
-            if (Vector3.Distance(p, b.transform.position) < minDistance) return true;
-        }
+        position = Vector3.zero;
         return false;
     }
 
-    private void OnBottlePicked(string data)
+    private bool IsTooClose(Vector3 position)
     {
-        // TODO: ShortsPlayer.Open(data)로 교체
-        Debug.Log($"[Spawner] Picked: {data}");
-        // 잡힌 병은 Update에서 자동 정리됨 (gameObject.SetActive(false) 됨)
+        foreach (var bottle in activeBottles)
+        {
+            if (bottle == null) continue;
+            if (Vector3.Distance(position, bottle.transform.position) < minDistance) return true;
+        }
+
+        return false;
+    }
+
+    private void OnBottlePicked(string shortsUrl)
+    {
+        Debug.Log($"[Spawner] Picked shorts URL: {shortsUrl}");
+    }
+
+    private bool CanSpawn()
+    {
+        if (target == null)
+        {
+            Debug.LogWarning("[Spawner] Target is missing. Assign the Boat transform to BottleSpawner.target.", this);
+            return false;
+        }
+
+        if (bottlePrefab == null)
+        {
+            Debug.LogWarning("[Spawner] Bottle prefab is missing. Assign the existing bottle prefab to BottleSpawner.bottlePrefab.", this);
+            return false;
+        }
+
+        if (contentRepository == null)
+        {
+            Debug.LogWarning("[Spawner] Content repository is missing. Assign a ShortsContentRepository object to BottleSpawner.contentRepository.", this);
+            return false;
+        }
+
+        return true;
     }
 }

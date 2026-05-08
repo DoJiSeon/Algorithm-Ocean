@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
@@ -35,6 +37,9 @@ public class FirebaseRestManager : MonoBehaviour
     private TMP_InputField youtubeInputField;
 
     private string userId;
+    private readonly List<SubmitData> cachedSubmissions = new();
+
+    public IReadOnlyList<SubmitData> CachedSubmissions => cachedSubmissions;
 
     void Start()
     {
@@ -121,6 +126,50 @@ public class FirebaseRestManager : MonoBehaviour
             Debug.LogError("제출 실패: " + request.error);
             Debug.LogError(request.downloadHandler.text);
         }
+    }
+
+    public IEnumerator FetchSubmissionsCoroutine(Action<List<SubmitData>> onCompleted)
+    {
+        string url = databaseUrl + "submissions.json";
+        UnityWebRequest request = UnityWebRequest.Get(url);
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError("Submissions fetch failed: " + request.error);
+            Debug.LogError(request.downloadHandler.text);
+            onCompleted?.Invoke(new List<SubmitData>());
+            yield break;
+        }
+
+        List<SubmitData> submissions = ParseSubmissions(request.downloadHandler.text);
+
+        cachedSubmissions.Clear();
+        cachedSubmissions.AddRange(submissions);
+
+        onCompleted?.Invoke(new List<SubmitData>(cachedSubmissions));
+    }
+
+    private static List<SubmitData> ParseSubmissions(string json)
+    {
+        var submissions = new List<SubmitData>();
+        if (string.IsNullOrWhiteSpace(json) || json == "null")
+        {
+            return submissions;
+        }
+
+        JObject root = JObject.Parse(json);
+        foreach (JProperty property in root.Properties())
+        {
+            SubmitData data = property.Value.ToObject<SubmitData>();
+            if (data != null && !string.IsNullOrWhiteSpace(data.youtube))
+            {
+                submissions.Add(data);
+            }
+        }
+
+        return submissions;
     }
 
     private void ClearInput()
