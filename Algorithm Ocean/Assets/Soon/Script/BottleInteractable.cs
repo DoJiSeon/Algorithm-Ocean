@@ -23,7 +23,7 @@ public class BottleInteractable : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (isPicked) return;
-        if (!other.CompareTag("Ship")) return;
+        if (!other.CompareTag("Boat")) return;
 
         Pick();
     }
@@ -33,7 +33,7 @@ public class BottleInteractable : MonoBehaviour
         isPicked = true;
 
         // ¹è Á¤Áö
-        var ship = GameObject.FindWithTag("Ship");
+        var ship = GameObject.FindWithTag("Boat");
         if (ship != null) ship.GetComponent<ShipController>()?.StopMoving();
 
         Debug.Log($"[Bottle] Auto-picked: {dummyData}");
