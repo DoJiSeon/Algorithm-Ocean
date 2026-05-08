@@ -124,7 +124,9 @@ public class BottleSpawner : MonoBehaviour
             return false;
         }
 
-        var bottle = Instantiate(bottlePrefab, position, bottlePrefab.transform.rotation, transform);
+        Vector3 prefabEulerAngles = bottlePrefab.transform.rotation.eulerAngles;
+        Quaternion randomYRotation = Quaternion.Euler(prefabEulerAngles.x, Random.Range(0f, 360f), prefabEulerAngles.z);
+        var bottle = Instantiate(bottlePrefab, position, randomYRotation, transform);
         var interactable = bottle.GetComponent<BottleInteractable>();
 
         if (interactable == null)
@@ -222,7 +224,7 @@ public class BottleSpawner : MonoBehaviour
             float radius = Random.Range(spawnRadiusMin, spawnRadiusMax);
             Vector3 candidate = target.position + new Vector3(
                 Mathf.Cos(angle) * radius,
-                0f,
+                -0.5f,
                 Mathf.Sin(angle) * radius
             );
 
