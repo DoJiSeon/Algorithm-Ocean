@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "15540021062",
+    "project_id": "alogorithm-ocean",
+    "storage_bucket": "alogorithm-ocean.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:15540021062:android:74f5dc37cc686bee9d6747",
+        "android_client_info": {
+          "package_name": "com.team.algorithmsea"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDh-gtclf6KyipxEQkNLSH6-wFX7MoEZVI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
