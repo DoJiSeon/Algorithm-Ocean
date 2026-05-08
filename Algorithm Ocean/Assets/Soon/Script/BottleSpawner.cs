@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using AlgorithmOcean.Dohyeon;
+using AlgorithmOcean.ShortsPlayer;
 
 public class BottleSpawner : MonoBehaviour
 {
@@ -58,6 +59,8 @@ public class BottleSpawner : MonoBehaviour
 
     private void RefillBottles()
     {
+        RemoveViewedBottles();
+
         List<SubmitData> filteredContents = GetSpawnableContents();
         if (filteredContents.Count == 0)
         {
@@ -67,22 +70,25 @@ public class BottleSpawner : MonoBehaviour
         int targetBottleCount = Mathf.Min(spawnCount, filteredContents.Count);
         while (activeBottles.Count < targetBottleCount)
         {
-            SpawnOne(filteredContents);
+            if (!SpawnOne(filteredContents))
+            {
+                break;
+            }
         }
     }
 
-    private void SpawnOne(List<SubmitData> filteredContents)
+    private bool SpawnOne(List<SubmitData> filteredContents)
     {
         if (!TryFindSpawnPosition(out Vector3 position))
         {
             Debug.LogWarning("[Spawner] Could not find a valid bottle spawn position.", this);
-            return;
+            return false;
         }
 
         SubmitData content = PickUnusedContent(filteredContents);
         if (content == null)
         {
-            return;
+            return false;
         }
 
         var bottle = Instantiate(bottlePrefab, position, Quaternion.identity, transform);
@@ -92,12 +98,13 @@ public class BottleSpawner : MonoBehaviour
         {
             Debug.LogWarning("[Spawner] Bottle prefab has no BottleInteractable component.", bottle);
             Destroy(bottle);
-            return;
+            return false;
         }
 
         interactable.Initialize(content, playbackUI, target);
         interactable.OnPicked.AddListener(OnBottlePicked);
         activeBottles.Add(interactable);
+        return true;
     }
 
     private List<SubmitData> GetSpawnableContents()
@@ -110,7 +117,7 @@ public class BottleSpawner : MonoBehaviour
         List<SubmitData> filteredContents = contentRepository.GetFilteredContents();
         if (filteredContents.Count == 0)
         {
-            Debug.LogWarning("[Spawner] No shorts content available after preferred genre filtering.", this);
+            Debug.LogWarning("[Spawner] No shorts content available after viewed and preferred genre filtering.", this);
         }
 
         return filteredContents;
@@ -122,7 +129,15 @@ public class BottleSpawner : MonoBehaviour
         foreach (BottleInteractable bottle in activeBottles)
         {
             if (bottle == null) continue;
-            candidates.Remove(bottle.ContentData);
+
+            string activeShortsKey = GetShortsKey(bottle.ContentData?.youtube);
+            for (int i = candidates.Count - 1; i >= 0; i--)
+            {
+                if (GetShortsKey(candidates[i]?.youtube) == activeShortsKey)
+                {
+                    candidates.RemoveAt(i);
+                }
+            }
         }
 
         if (candidates.Count == 0)
@@ -131,6 +146,39 @@ public class BottleSpawner : MonoBehaviour
         }
 
         return candidates[Random.Range(0, candidates.Count)];
+    }
+
+    private static string GetShortsKey(string shortsUrl)
+    {
+        string videoId = YouTubeShortsPlayer.ExtractVideoId(shortsUrl);
+        return string.IsNullOrEmpty(videoId) ? shortsUrl?.Trim() : videoId;
+    }
+
+    private void RemoveViewedBottles()
+    {
+        if (contentRepository == null)
+        {
+            return;
+        }
+
+        for (int i = activeBottles.Count - 1; i >= 0; i--)
+        {
+            BottleInteractable bottle = activeBottles[i];
+            if (bottle == null)
+            {
+                activeBottles.RemoveAt(i);
+                continue;
+            }
+
+            SubmitData content = bottle.ContentData;
+            if (content == null || !contentRepository.IsViewed(content.youtube))
+            {
+                continue;
+            }
+
+            Destroy(bottle.gameObject);
+            activeBottles.RemoveAt(i);
+        }
     }
 
     private bool TryFindSpawnPosition(out Vector3 position)
@@ -170,6 +218,9 @@ public class BottleSpawner : MonoBehaviour
     private void OnBottlePicked(string shortsUrl)
     {
         Debug.Log($"[Spawner] Picked shorts URL: {shortsUrl}");
+        contentRepository.MarkViewed(shortsUrl);
+        RemoveViewedBottles();
+        RefillBottles();
     }
 
     private bool CanSpawn()

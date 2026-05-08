@@ -61,4 +61,27 @@ public class GameManager : MonoBehaviour
     {
         return selectedPreferenceCategories;
     }
+
+    public bool ContainsSelectedPreferenceCategory(string category)
+    {
+        foreach (string selectedCategory in selectedPreferenceCategories)
+        {
+            if (IsSameCategory(selectedCategory, category))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSameCategory(string a, string b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+        {
+            return false;
+        }
+
+        return string.Equals(a.Trim(), b.Trim(), System.StringComparison.OrdinalIgnoreCase);
+    }
 }

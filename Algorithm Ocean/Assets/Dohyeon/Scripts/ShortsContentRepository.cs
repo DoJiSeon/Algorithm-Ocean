@@ -1,16 +1,18 @@
 using System.Collections.Generic;
+using AlgorithmOcean.ShortsPlayer;
 using UnityEngine;
 
 namespace AlgorithmOcean.Dohyeon
 {
     public sealed class ShortsContentRepository : MonoBehaviour
     {
-        [SerializeField] private PreferredGenreStore preferredGenreStore;
+        [SerializeField] private global::GameManager gameManager;
         [SerializeField] private FirebaseRestManager firebaseRestManager;
         [SerializeField] private bool fetchFromFirebaseOnStart = true;
         [SerializeField] private List<SubmitData> fallbackContents = new();
 
         private readonly List<SubmitData> firebaseContents = new();
+        private readonly HashSet<string> viewedShortsKeys = new();
 
         public IReadOnlyList<SubmitData> FallbackContents => fallbackContents;
         public IReadOnlyList<SubmitData> FirebaseContents => firebaseContents;
@@ -62,6 +64,11 @@ namespace AlgorithmOcean.Dohyeon
                     continue;
                 }
 
+                if (IsViewedContent(content))
+                {
+                    continue;
+                }
+
                 if (IsPreferredCategory(content))
                 {
                     continue;
@@ -90,6 +97,28 @@ namespace AlgorithmOcean.Dohyeon
             return filteredContents[Random.Range(0, filteredContents.Count)];
         }
 
+        public void MarkViewed(string shortsUrl)
+        {
+            string key = GetShortsKey(shortsUrl);
+            if (string.IsNullOrEmpty(key))
+            {
+                return;
+            }
+
+            viewedShortsKeys.Add(key);
+        }
+
+        public bool IsViewed(string shortsUrl)
+        {
+            string key = GetShortsKey(shortsUrl);
+            return !string.IsNullOrEmpty(key) && viewedShortsKeys.Contains(key);
+        }
+
+        public void ClearViewed()
+        {
+            viewedShortsKeys.Clear();
+        }
+
         private void OnFirebaseContentsLoaded(List<SubmitData> loadedContents)
         {
             firebaseContents.Clear();
@@ -104,20 +133,35 @@ namespace AlgorithmOcean.Dohyeon
 
         private bool IsPreferredCategory(SubmitData content)
         {
-            if (preferredGenreStore == null || content.categories == null)
+            global::GameManager preferenceSource = gameManager != null
+                ? gameManager
+                : global::GameManager.Instance;
+
+            if (preferenceSource == null || content.categories == null)
             {
                 return false;
             }
 
             foreach (string category in content.categories)
             {
-                if (preferredGenreStore.ContainsGenre(category))
+                if (preferenceSource.ContainsSelectedPreferenceCategory(category))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private bool IsViewedContent(SubmitData content)
+        {
+            return content != null && IsViewed(content.youtube);
+        }
+
+        private static string GetShortsKey(string shortsUrl)
+        {
+            string videoId = YouTubeShortsPlayer.ExtractVideoId(shortsUrl);
+            return string.IsNullOrEmpty(videoId) ? shortsUrl?.Trim() : videoId;
         }
     }
 }
