@@ -11,6 +11,7 @@ namespace AlgorithmOcean.Dohyeon
 
         public UnityEvent<string> onShortsUrlReceived;
         private bool isOpening;
+        private bool isPlaying;
 
         private void Awake()
         {
@@ -35,6 +36,8 @@ namespace AlgorithmOcean.Dohyeon
                 isOpening = false;
             }
 
+            isPlaying = true;
+            SoundManager.Instance?.PauseBgm();
             onShortsUrlReceived?.Invoke(shortsUrl);
 
             if (shortsPlayer != null)
@@ -50,15 +53,38 @@ namespace AlgorithmOcean.Dohyeon
 
         public void Close()
         {
-            if (shortsPlayer != null)
-            {
-                shortsPlayer.Stop();
-            }
+            StopPlayback();
 
             if (root != null)
             {
                 root.SetActive(false);
             }
+        }
+
+        private void OnDisable()
+        {
+            if (!isOpening)
+            {
+                StopPlayback();
+            }
+        }
+
+        private void StopPlayback()
+        {
+            if (!isPlaying)
+            {
+                return;
+            }
+
+            isPlaying = false;
+
+            if (shortsPlayer != null)
+            {
+                shortsPlayer.Stop();
+                shortsPlayer.SetVisible(false);
+            }
+
+            SoundManager.Instance?.ResumeBgm();
         }
     }
 }

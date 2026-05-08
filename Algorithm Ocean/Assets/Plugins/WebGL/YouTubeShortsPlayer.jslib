@@ -423,7 +423,16 @@ mergeInto(LibraryManager.library, {
 
       stop: function (objectName) {
         const entry = players[objectName];
-        if (entry && entry.iframe) {
+        if (!entry) {
+          return;
+        }
+
+        entry.autoplay = false;
+        entry.visible = false;
+        entry.container.style.display = "none";
+
+        if (entry.iframe) {
+          entry.iframe.removeAttribute("src");
           entry.iframe.src = "about:blank";
         }
       },

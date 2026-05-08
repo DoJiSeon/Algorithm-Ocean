@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// BGM + SFX 통합 사운드 매니저.
-/// 씬 전환 시에도 유지되며, 볼륨은 각각 독립 제어.
+/// Manages BGM and SFX playback.
+/// Persists across scene changes and controls each volume separately.
 /// </summary>
 public class SoundManager : MonoBehaviour
 {
@@ -19,6 +19,10 @@ public class SoundManager : MonoBehaviour
     [Header("Default BGM (Optional)")]
     [SerializeField] private AudioClip defaultBgm;
 
+    private AudioClip pausedBgmClip;
+    private float pausedBgmTime;
+    private bool bgmPaused;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -29,7 +33,7 @@ public class SoundManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // AudioSource 자동 생성 (인스펙터에 없으면)
+        // Create AudioSources automatically when they are not assigned in the Inspector.
         if (bgmSource == null) bgmSource = CreateSource("BgmSource", true);
         if (sfxSource == null) sfxSource = CreateSource("SfxSource", false);
 
@@ -52,8 +56,9 @@ public class SoundManager : MonoBehaviour
     public void PlayBgm(AudioClip clip)
     {
         if (clip == null) return;
-        if (bgmSource.clip == clip && bgmSource.isPlaying) return;  // 이미 같은 곡 재생 중
+        if (bgmSource.clip == clip && bgmSource.isPlaying) return;
 
+        bgmSource.loop = true;
         bgmSource.clip = clip;
         bgmSource.volume = bgmVolume;
         bgmSource.Play();
@@ -61,16 +66,40 @@ public class SoundManager : MonoBehaviour
 
     public void PauseBgm()
     {
-        if (bgmSource.isPlaying) bgmSource.Pause();
+        if (!bgmSource.isPlaying) return;
+
+        pausedBgmClip = bgmSource.clip;
+        pausedBgmTime = bgmSource.time;
+        bgmPaused = true;
+        bgmSource.Pause();
     }
 
     public void ResumeBgm()
     {
-        if (bgmSource.clip != null && !bgmSource.isPlaying) bgmSource.UnPause();
+        if (bgmSource.isPlaying) return;
+        if (bgmSource.clip == null && pausedBgmClip == null) return;
+
+        if (bgmPaused && pausedBgmClip != null)
+        {
+            bgmSource.clip = pausedBgmClip;
+            bgmSource.time = Mathf.Clamp(pausedBgmTime, 0f, Mathf.Max(0f, pausedBgmClip.length - 0.01f));
+        }
+
+        bgmSource.UnPause();
+
+        if (!bgmSource.isPlaying)
+        {
+            bgmSource.Play();
+        }
+
+        bgmPaused = false;
     }
 
     public void StopBgm()
     {
+        bgmPaused = false;
+        pausedBgmClip = null;
+        pausedBgmTime = 0f;
         bgmSource.Stop();
     }
 
@@ -91,8 +120,7 @@ public class SoundManager : MonoBehaviour
     public void SetSfxVolume(float v)
     {
         sfxVolume = Mathf.Clamp01(v);
-        // SFX는 PlayOneShot이라 재생 중인 소리에는 즉시 반영 안 됨
-        // (다음 PlaySfx 호출부터 적용)
+        // PlayOneShot applies the volume to future SFX playback.
     }
 
     public float BgmVolume => bgmVolume;

@@ -99,6 +99,7 @@ namespace AlgorithmOcean.ShortsPlayer
 
         private void OnDisable()
         {
+            Stop();
             SetVisible(false);
         }
 

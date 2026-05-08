@@ -10,7 +10,9 @@ public class ShipController : MonoBehaviour
     private Camera cam;
     private Vector3 targetPos;
     private Vector3 velocity;                              // SmoothDamp용
+    private Vector3 lastMoveDirection;
     private bool isMoving;
+    private bool isStopping;
 
     private void Awake()
     {
@@ -38,6 +40,7 @@ public class ShipController : MonoBehaviour
         {
             targetPos = new Vector3(hit.point.x, transform.position.y, hit.point.z);
             isMoving = true;
+            isStopping = false;
         }
     }
 
@@ -54,14 +57,20 @@ public class ShipController : MonoBehaviour
         dir.y = 0;
         if (dir.sqrMagnitude > 0.01f)
         {
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation, Quaternion.LookRotation(dir), 5f * Time.deltaTime);
+            lastMoveDirection = dir.normalized;
+
+            if (!isStopping)
+            {
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation, Quaternion.LookRotation(lastMoveDirection), 5f * Time.deltaTime);
+            }
         }
 
         // 거의 멈췄으면 종료
         if (Vector3.Distance(transform.position, targetPos) < 0.05f && velocity.sqrMagnitude < 0.01f)
         {
             isMoving = false;
+            isStopping = false;
             velocity = Vector3.zero;
         }
     }
@@ -71,6 +80,12 @@ public class ShipController : MonoBehaviour
         // 자동 픽업 시 사용. 즉시 멈추진 않고 감속 시작
         //targetPos = transform.position;
         // 또는 더 자연스럽게: 현재 위치 살짝 앞으로
-        targetPos = transform.position + velocity.normalized * 0.5f;
+        isStopping = true;
+
+        Vector3 stopDirection = lastMoveDirection.sqrMagnitude > 0.01f
+            ? lastMoveDirection
+            : transform.forward;
+
+        targetPos = transform.position + stopDirection * 0.5f;
     }
 }
