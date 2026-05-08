@@ -62,7 +62,7 @@ namespace AlgorithmOcean.Dohyeon
                     continue;
                 }
 
-                if (preferredGenreStore != null && preferredGenreStore.ContainsGenre(content.category))
+                if (IsPreferredCategory(content))
                 {
                     continue;
                 }
@@ -100,6 +100,24 @@ namespace AlgorithmOcean.Dohyeon
 
             IsLoaded = true;
             Debug.Log($"[ShortsContentRepository] Loaded {firebaseContents.Count} SubmitData entries from Firebase.", this);
+        }
+
+        private bool IsPreferredCategory(SubmitData content)
+        {
+            if (preferredGenreStore == null || content.categories == null)
+            {
+                return false;
+            }
+
+            foreach (string category in content.categories)
+            {
+                if (preferredGenreStore.ContainsGenre(category))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

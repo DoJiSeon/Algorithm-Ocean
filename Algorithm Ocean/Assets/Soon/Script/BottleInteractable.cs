@@ -99,7 +99,10 @@ public class BottleInteractable : MonoBehaviour
         if (ship != null) ship.GetComponent<ShipController>()?.StopMoving();
 
         string shortsUrl = contentData.youtube;
-        Debug.Log($"[Bottle] Picked category='{contentData.category}', youtube='{shortsUrl}'");
+        string categories = contentData.categories != null
+            ? string.Join(", ", contentData.categories)
+            : string.Empty;
+        Debug.Log($"[Bottle] Picked categories='{categories}', youtube='{shortsUrl}'");
         OnPicked?.Invoke(shortsUrl);
         playbackUI?.Open(shortsUrl);
         gameObject.SetActive(false);
