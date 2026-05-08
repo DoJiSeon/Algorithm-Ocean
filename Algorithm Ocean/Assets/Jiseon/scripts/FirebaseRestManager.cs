@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
@@ -9,7 +10,7 @@ using TMPro;
 public class SubmitData
 {
     public string userId;
-    public string category;
+    public string[] categories;
     public string youtube;
 }
 
@@ -17,7 +18,6 @@ public class SubmitData
 public class CategoryToggle
 {
     public Toggle toggle;
-    public string categoryName;
 }
 
 public class FirebaseRestManager : MonoBehaviour
@@ -54,12 +54,12 @@ public class FirebaseRestManager : MonoBehaviour
 
     public void Submit()
     {
-        string selectedCategory = GetSelectedCategory();
+        string[] selectedCategories = GetSelectedCategories();
         string youtubeValue = youtubeInputField.text.Trim();
 
-        if (string.IsNullOrEmpty(selectedCategory))
+        if (selectedCategories.Length == 0)
         {
-            Debug.LogWarning("카테고리를 선택해야 합니다.");
+            Debug.LogWarning("카테고리를 하나 이상 선택해야 합니다.");
             return;
         }
 
@@ -72,32 +72,46 @@ public class FirebaseRestManager : MonoBehaviour
         SubmitData data = new SubmitData
         {
             userId = userId,
-            category = selectedCategory,
+            categories = selectedCategories,
             youtube = youtubeValue
         };
 
         StartCoroutine(SubmitCoroutine(data));
     }
 
-    private string GetSelectedCategory()
+    private string[] GetSelectedCategories()
     {
+        List<string> selectedCategories = new List<string>();
+
         foreach (CategoryToggle item in categoryToggles)
         {
             if (item.toggle != null && item.toggle.isOn)
             {
-                return item.categoryName;
+                Text label = item.toggle.GetComponentInChildren<Text>();
+
+                if (label != null)
+                {
+                    string category = label.text.Trim();
+
+                    if (!string.IsNullOrEmpty(category))
+                    {
+                        selectedCategories.Add(category);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("선택된 토글 안에서 Text 라벨을 찾지 못했습니다.");
+                }
             }
         }
 
-        return "";
+        return selectedCategories.ToArray();
     }
 
     private IEnumerator SubmitCoroutine(SubmitData data)
     {
         string json = JsonUtility.ToJson(data);
 
-        // submissions/{자동생성ID}.json 형태로 저장됨
-        // userId는 데이터 안에 같이 저장
         string url = databaseUrl + "submissions.json";
 
         UnityWebRequest request = new UnityWebRequest(url, "POST");
@@ -125,10 +139,8 @@ public class FirebaseRestManager : MonoBehaviour
 
     private void ClearInput()
     {
-        // 입력창 비우기
         youtubeInputField.text = "";
 
-        // 카테고리 토글 전부 끄기
         foreach (CategoryToggle item in categoryToggles)
         {
             if (item.toggle != null)
