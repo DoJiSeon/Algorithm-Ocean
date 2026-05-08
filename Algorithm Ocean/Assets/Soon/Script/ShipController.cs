@@ -1,13 +1,15 @@
 using UnityEngine;
-using UnityEngine.InputSystem;  // 추가
+using UnityEngine.InputSystem;
 
 public class ShipController : MonoBehaviour
 {
     [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float smoothTime = 0.6f;     // 감속 시간 (클수록 부드럽게)
     [SerializeField] private LayerMask seaLayer;
 
     private Camera cam;
     private Vector3 targetPos;
+    private Vector3 velocity;                              // SmoothDamp용
     private bool isMoving;
 
     private void Awake()
@@ -24,12 +26,11 @@ public class ShipController : MonoBehaviour
 
     private void HandleClick()
     {
-        // 변경: Input.GetMouseButtonDown(0) → Mouse.current
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
 
-        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+        var es = UnityEngine.EventSystems.EventSystem.current;
+        if (es != null && es.IsPointerOverGameObject()) return;
 
-        // 변경: Input.mousePosition → Mouse.current.position.ReadValue()
         Vector2 mousePos = Mouse.current.position.ReadValue();
         Ray ray = cam.ScreenPointToRay(mousePos);
 
@@ -42,12 +43,14 @@ public class ShipController : MonoBehaviour
 
     private void Move()
     {
-        // (동일)
         if (!isMoving) return;
-        transform.position = Vector3.MoveTowards(
-            transform.position, targetPos, moveSpeed * Time.deltaTime);
 
-        Vector3 dir = (targetPos - transform.position);
+        // SmoothDamp: 목표에 가까워질수록 자동으로 감속
+        transform.position = Vector3.SmoothDamp(
+            transform.position, targetPos, ref velocity, smoothTime, moveSpeed);
+
+        // 회전: 현재 속도 방향을 바라봄 (목표 방향 X)
+        Vector3 dir = velocity;
         dir.y = 0;
         if (dir.sqrMagnitude > 0.01f)
         {
@@ -55,13 +58,19 @@ public class ShipController : MonoBehaviour
                 transform.rotation, Quaternion.LookRotation(dir), 5f * Time.deltaTime);
         }
 
-        if (Vector3.Distance(transform.position, targetPos) < 0.05f)
+        // 거의 멈췄으면 종료
+        if (Vector3.Distance(transform.position, targetPos) < 0.05f && velocity.sqrMagnitude < 0.01f)
+        {
             isMoving = false;
+            velocity = Vector3.zero;
+        }
     }
 
     public void StopMoving()
     {
-        isMoving = false;
-        targetPos = transform.position;
+        // 자동 픽업 시 사용. 즉시 멈추진 않고 감속 시작
+        //targetPos = transform.position;
+        // 또는 더 자연스럽게: 현재 위치 살짝 앞으로
+        targetPos = transform.position + velocity.normalized * 0.5f;
     }
 }
